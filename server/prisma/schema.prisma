@@ -1,0 +1,122 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+    provider = "prisma-client-js"
+    output   = "../src/generated/prisma"
+}
+
+datasource db {
+    provider = "mongodb"
+    url      = env("DATABASE_URL")
+}
+
+model User {
+    id String @id @default(auto()) @map("_id") @db.ObjectId
+
+    username     String  @unique
+    password     String
+    displayName  String?
+    avatar       String?
+
+    expenses          Expense[]
+    requestedFriends  Friend[]           @relation("UserRequester")
+    receivedFriends   Friend[]           @relation("UserAddressee")
+    splitGroups       SplitGroup[]
+    splitParticipants SplitParticipant[]
+    categories        Category[]
+
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    @@map("users")
+}
+
+model Friend {
+    id          String       @id @default(auto()) @map("_id") @db.ObjectId
+    requesterId String       @db.ObjectId
+    addresseeId String       @db.ObjectId
+    status      FriendStatus @default(PENDING)
+
+    requester User @relation("UserRequester", fields: [requesterId], references: [id])
+    addressee User @relation("UserAddressee", fields: [addresseeId], references: [id])
+
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    @@map("friends")
+}
+
+enum FriendStatus {
+    PENDING
+    ACCEPTED
+    DECLINED
+}
+
+model SplitGroup {
+    id          String @id @default(auto()) @map("_id") @db.ObjectId
+    name        String
+    createdById String @db.ObjectId
+    createdBy   User   @relation(fields: [createdById], references: [id])
+
+    totalAmount Float     @default(0)
+    expenses    Expense[]
+
+    participants SplitParticipant[]
+
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    @@map("splitGroups")
+}
+
+model SplitParticipant {
+    id      String @id @default(auto()) @map("_id") @db.ObjectId
+    groupId String @db.ObjectId
+    userId  String @db.ObjectId
+
+    group SplitGroup @relation(fields: [groupId], references: [id])
+    user  User       @relation(fields: [userId], references: [id])
+
+    amountOwed Float @default(0)
+    amountPaid Float @default(0)
+
+    @@map("splitParticipants")
+}
+
+model Expense {
+    id     String @id @default(auto()) @map("_id") @db.ObjectId
+    userId String @db.ObjectId
+    user   User   @relation(fields: [userId], references: [id])
+
+    amount      Float
+    description String?
+    date        DateTime @default(now())
+
+    categoryId String?   @db.ObjectId
+    category   Category? @relation(fields: [categoryId], references: [id])
+
+    groupId String?     @db.ObjectId
+    group   SplitGroup? @relation(fields: [groupId], references: [id])
+
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    @@map("expenses")
+}
+
+model Category {
+    id     String  @id @default(auto()) @map("_id") @db.ObjectId
+    name   String
+    icon   String?
+    color  String?
+    userId String? @db.ObjectId
+
+    user     User?     @relation(fields: [userId], references: [id])
+    expenses Expense[]
+
+    @@map("categories")
+}
