@@ -17,74 +17,19 @@ datasource db {
 model User {
     id String @id @default(auto()) @map("_id") @db.ObjectId
 
-    username     String  @unique
-    password     String
-    displayName  String?
-    avatar       String?
+    username    String  @unique
+    password    String
+    displayName String?
+    avatar      String?
+    role        Role    @default(User)
 
-    expenses          Expense[]
-    requestedFriends  Friend[]           @relation("UserRequester")
-    receivedFriends   Friend[]           @relation("UserAddressee")
-    splitGroups       SplitGroup[]
-    splitParticipants SplitParticipant[]
-    categories        Category[]
+    expenses   Expense[]
+    categories Category[]
 
     createdAt DateTime @default(now())
     updatedAt DateTime @updatedAt
 
     @@map("users")
-}
-
-model Friend {
-    id          String       @id @default(auto()) @map("_id") @db.ObjectId
-    requesterId String       @db.ObjectId
-    addresseeId String       @db.ObjectId
-    status      FriendStatus @default(PENDING)
-
-    requester User @relation("UserRequester", fields: [requesterId], references: [id])
-    addressee User @relation("UserAddressee", fields: [addresseeId], references: [id])
-
-    createdAt DateTime @default(now())
-    updatedAt DateTime @updatedAt
-
-    @@map("friends")
-}
-
-enum FriendStatus {
-    PENDING
-    ACCEPTED
-    DECLINED
-}
-
-model SplitGroup {
-    id          String @id @default(auto()) @map("_id") @db.ObjectId
-    name        String
-    createdById String @db.ObjectId
-    createdBy   User   @relation(fields: [createdById], references: [id])
-
-    totalAmount Float     @default(0)
-    expenses    Expense[]
-
-    participants SplitParticipant[]
-
-    createdAt DateTime @default(now())
-    updatedAt DateTime @updatedAt
-
-    @@map("splitGroups")
-}
-
-model SplitParticipant {
-    id      String @id @default(auto()) @map("_id") @db.ObjectId
-    groupId String @db.ObjectId
-    userId  String @db.ObjectId
-
-    group SplitGroup @relation(fields: [groupId], references: [id])
-    user  User       @relation(fields: [userId], references: [id])
-
-    amountOwed Float @default(0)
-    amountPaid Float @default(0)
-
-    @@map("splitParticipants")
 }
 
 model Expense {
@@ -98,9 +43,6 @@ model Expense {
 
     categoryId String?   @db.ObjectId
     category   Category? @relation(fields: [categoryId], references: [id])
-
-    groupId String?     @db.ObjectId
-    group   SplitGroup? @relation(fields: [groupId], references: [id])
 
     createdAt DateTime @default(now())
     updatedAt DateTime @updatedAt
@@ -119,4 +61,9 @@ model Category {
     expenses Expense[]
 
     @@map("categories")
+}
+
+enum Role {
+    Admin
+    User
 }
