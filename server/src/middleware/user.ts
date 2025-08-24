@@ -1,21 +1,29 @@
 import jwt from "jsonwebtoken";
 import { NextFunction, Request, Response } from "express";
+import { AppError } from "./errorHandler";
 
-export const userMiddleware = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-    const header = req.headers["authorization"];
-    const token = header && header.split(" ")[1];
+export const userMiddleware = async (
+    req: Request,
+    res: Response,
+    next: NextFunction
+): Promise<void> => {
+
+    const headers = req.headers["authorization"];
+    // Expecting header format: "Bearer <token>"
+    const token = headers && headers.split(" ")[1];
 
     if (!token) {
-        res.status(401).json({ message: "Unauthorized" });
-        return Promise.reject(new Error("Unauthorized")); 
+        return next(new AppError("Unauthorized", 401));
     }
 
     try {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET as string) as {userId: string, role: string};
+        const decoded = jwt.verify(token, process.env.JWT_SECRET as string) as {
+            userId: string;
+            role: string;
+        };
         req.userId = decoded.userId;
         next();
     } catch (error) {
-        res.status(401).json({ message: "Unauthorized" });
-        return Promise.reject(new Error("Unauthorized"));
+        return next(new AppError("Unauthorized", 401));
     }
-}
+};
