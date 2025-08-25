@@ -16,19 +16,30 @@ datasource db {
 
 model User {
     id String @id @default(auto()) @map("_id") @db.ObjectId
-
     username    String  @unique
     password    String
     displayName String?
     avatar      String?
     role        Role    @default(User)
-
+    
     expenses   Expense[]
     categories Category[]
-
+    
+    sentFriendRequests     FriendRequest[] @relation("FriendRequestSender")
+    receivedFriendRequests FriendRequest[] @relation("FriendRequestReceiver")
+    friendshipsInitiated   Friendship[]    @relation("FriendshipInitiator")
+    friendshipsReceived    Friendship[]    @relation("FriendshipReceiver")
+    
+    groupsCreated    SplitGroup[]      @relation("GroupCreator")
+    groupMemberships GroupMember[]
+    
+    splitExpensesCreated SplitExpense[]     @relation("SplitExpenseCreator")
+    expenseSplits        ExpenseSplit[]
+    settlementsFrom      Settlement[]       @relation("SettlementFrom")
+    settlementsTo        Settlement[]       @relation("SettlementTo")
+    
     createdAt DateTime @default(now())
     updatedAt DateTime @updatedAt
-
     @@map("users")
 }
 
@@ -36,17 +47,13 @@ model Expense {
     id     String @id @default(auto()) @map("_id") @db.ObjectId
     userId String @db.ObjectId
     user   User   @relation(fields: [userId], references: [id])
-
     amount      Float
     description String?
     date        DateTime @default(now())
-
     categoryId String?   @db.ObjectId
     category   Category? @relation(fields: [categoryId], references: [id])
-
     createdAt DateTime @default(now())
     updatedAt DateTime @updatedAt
-
     @@map("expenses")
 }
 
@@ -55,15 +62,166 @@ model Category {
     name   String
     icon   String?
     color  String?
-
     userId String? @db.ObjectId
     user     User?     @relation(fields: [userId], references: [id])
     expenses Expense[]
-
+    splitExpenses SplitExpense[]
     @@map("categories")
+}
+
+model FriendRequest {
+    id String @id @default(auto()) @map("_id") @db.ObjectId
+    
+    senderId   String @db.ObjectId
+    sender     User   @relation("FriendRequestSender", fields: [senderId], references: [id])
+    
+    receiverId String @db.ObjectId
+    receiver   User   @relation("FriendRequestReceiver", fields: [receiverId], references: [id])
+    
+    status     FriendRequestStatus @default(Pending)
+    message    String?
+    
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+    
+    @@unique([senderId, receiverId])
+    @@map("friend_requests")
+}
+
+model Friendship {
+    id String @id @default(auto()) @map("_id") @db.ObjectId
+    
+    initiatorId String @db.ObjectId
+    initiator   User   @relation("FriendshipInitiator", fields: [initiatorId], references: [id])
+    
+    receiverId  String @db.ObjectId
+    receiver    User   @relation("FriendshipReceiver", fields: [receiverId], references: [id])
+    
+    createdAt DateTime @default(now())
+    
+    @@unique([initiatorId, receiverId])
+    @@map("friendships")
+}
+
+model SplitGroup {
+    id String @id @default(auto()) @map("_id") @db.ObjectId
+    
+    name        String
+    description String?
+    image       String?
+    
+    creatorId String @db.ObjectId
+    creator   User   @relation("GroupCreator", fields: [creatorId], references: [id])
+    
+    members      GroupMember[]
+    splitExpenses SplitExpense[]
+    
+    isActive  Boolean @default(true)
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+    
+    @@map("split_groups")
+}
+
+model GroupMember {
+    id String @id @default(auto()) @map("_id") @db.ObjectId
+    
+    groupId String     @db.ObjectId
+    group   SplitGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+    
+    userId String @db.ObjectId
+    user   User   @relation(fields: [userId], references: [id])
+    
+    joinedAt DateTime @default(now())
+    isActive Boolean @default(true)
+    
+    @@unique([groupId, userId])
+    @@map("group_members")
+}
+
+model SplitExpense {
+    id String @id @default(auto()) @map("_id") @db.ObjectId
+    
+    groupId String     @db.ObjectId
+    group   SplitGroup @relation(fields: [groupId], references: [id])
+    
+    paidById String @db.ObjectId
+    paidBy   User   @relation("SplitExpenseCreator", fields: [paidById], references: [id])
+    
+    amount      Float
+    description String
+    date        DateTime @default(now())
+    
+    categoryId String?   @db.ObjectId
+    category   Category? @relation(fields: [categoryId], references: [id])
+    
+    splitType SplitType @default(Equal)
+    
+    // Individual splits for each member
+    expenseSplits ExpenseSplit[]
+    
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+    
+    @@map("split_expenses")
+}
+
+// Individual expense splits (how much each person owes)
+model ExpenseSplit {
+    id String @id @default(auto()) @map("_id") @db.ObjectId
+    
+    splitExpenseId String       @db.ObjectId
+    splitExpense   SplitExpense @relation(fields: [splitExpenseId], references: [id], onDelete: Cascade)
+    
+    userId String @db.ObjectId
+    user   User   @relation(fields: [userId], references: [id])
+    
+    amount    Float   // Amount this user owes/is owed
+    isPaid    Boolean @default(false)
+    settledAt DateTime?
+    
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+    
+    @@unique([splitExpenseId, userId])
+    @@map("expense_splits")
+}
+
+// Settlements (when someone pays back their share)
+model Settlement {
+    id String @id @default(auto()) @map("_id") @db.ObjectId
+    
+    fromUserId String @db.ObjectId
+    fromUser   User   @relation("SettlementFrom", fields: [fromUserId], references: [id])
+    
+    toUserId String @db.ObjectId
+    toUser   User   @relation("SettlementTo", fields: [toUserId], references: [id])
+    
+    amount      Float
+    description String?
+    
+    // Optional: link to specific expense splits being settled
+    splitExpenseId String?       @db.ObjectId
+    
+    settledAt DateTime @default(now())
+    
+    @@map("settlements")
 }
 
 enum Role {
     Admin
     User
+}
+
+enum FriendRequestStatus {
+    Pending
+    Accepted
+    Rejected
+    Cancelled
+}
+
+enum SplitType {
+    Equal      
+    Percentage 
+    Amount     
 }
