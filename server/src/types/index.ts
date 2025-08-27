@@ -12,6 +12,11 @@ export const SigninSchema = z.object({
     password: z.string().min(8)
 })
 
+
+export const SearchUserSchema = z.object({
+    username: z.string().min(3)
+})
+
 export const UpdateMetadataSchema = z.object({
     avatar: z.string()
 })
@@ -34,6 +39,11 @@ export const AddExpenseSchema = z.object({
     description: z.string().min(3).max(100),
     categoryId: z.string(),
     date: z.date().optional()
+})
+
+export const SendFriendRequestSchema = z.object({
+    username: z.string().min(3),
+    message: z.string().optional()
 })
 
 
