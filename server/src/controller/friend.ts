@@ -42,7 +42,21 @@ export const getFriendInfo = async (req: Request, res: Response) => {
     if (req.userId === friendId) {
         throw new AppError("Cannot get your own info as a friend", 400);
     }
-    
+
+
+    const isFriend = await db.friendship.findFirst({
+        where: {
+            OR: [
+                {initiatorId: req.userId, receiverId: friendId},
+                {receiverId: friendId, initiatorId: req.userId}
+            ]
+        }
+    })
+
+    if (isFriend) {
+        throw new AppError("User is not a friend", 400);
+    }
+
     const friend = await db.user.findUnique({
         where: {
             id: friendId

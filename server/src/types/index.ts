@@ -12,6 +12,10 @@ export const SigninSchema = z.object({
     password: z.string().min(8)
 })
 
+export const UpdateProfileSchema = z.object({
+    displayName: z.string().min(3),
+    avatar: z.string()
+})
 
 export const SearchUserSchema = z.object({
     username: z.string().min(3)
