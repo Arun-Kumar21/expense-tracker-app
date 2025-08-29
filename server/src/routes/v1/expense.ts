@@ -4,8 +4,10 @@ import { addExpense, deleteExpense, getExpenseById, getExpenses, updateExpense }
 
 export const expenseRouter = express.Router();
 
-expenseRouter.post("/", userMiddleware, addExpense);
-expenseRouter.get("/", userMiddleware, getExpenses);
-expenseRouter.get("/:expenseId", userMiddleware, getExpenseById);
-expenseRouter.put("/:expenseId", userMiddleware, updateExpense);
-expenseRouter.delete("/:expenseId", userMiddleware, deleteExpense);
+expenseRouter.use(userMiddleware);
+
+expenseRouter.post("/", addExpense);
+expenseRouter.get("/", getExpenses);
+expenseRouter.get("/:expenseId", getExpenseById);
+expenseRouter.put("/:expenseId", updateExpense);
+expenseRouter.delete("/:expenseId", deleteExpense);

@@ -3,6 +3,7 @@ import { userMiddleware } from '../../middleware/user';
 import { getCurrentUserProfile, updateCurrentUserProfile } from '../../controller/me';
 
 export const meRouter = express.Router();
+meRouter.use(userMiddleware);
 
-meRouter.get("/", userMiddleware, getCurrentUserProfile);
-meRouter.put("/", userMiddleware, updateCurrentUserProfile);
+meRouter.get("/", getCurrentUserProfile);
+meRouter.put("/", updateCurrentUserProfile);

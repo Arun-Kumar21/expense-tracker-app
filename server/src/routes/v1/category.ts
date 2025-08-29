@@ -4,7 +4,9 @@ import { addCategory, deleteCategory, getAllCategories, updateCategory } from '.
 
 export const categoryRouter = express.Router();
 
-categoryRouter.get("/", userMiddleware, getAllCategories)
-categoryRouter.post("/", userMiddleware, addCategory)
-categoryRouter.patch("/:categoryId", userMiddleware, updateCategory)
-categoryRouter.delete("/:categoryId", userMiddleware, deleteCategory)
+categoryRouter.use(userMiddleware);
+
+categoryRouter.get("/", getAllCategories);
+categoryRouter.post("/", addCategory);
+categoryRouter.patch("/:categoryId", updateCategory);
+categoryRouter.delete("/:categoryId", deleteCategory);

@@ -5,5 +5,7 @@ import { addGlobalCategory, deleteGlobalCategory } from '../../controller/admin'
 export const adminRouter = express.Router();
 
 
-adminRouter.post("/categories", adminMiddleware, addGlobalCategory);
-adminRouter.delete("/categories/:categoryId", adminMiddleware, deleteGlobalCategory);
+adminRouter.use(adminMiddleware);
+
+adminRouter.post("/categories", addGlobalCategory);
+adminRouter.delete("/categories/:categoryId", deleteGlobalCategory);

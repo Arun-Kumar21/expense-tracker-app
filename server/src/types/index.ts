@@ -50,6 +50,23 @@ export const SendFriendRequestSchema = z.object({
     message: z.string().optional()
 })
 
+export const CreateGroupSchema = z.object({
+    name: z.string().min(3).max(50),
+    description: z.string().max(200).optional(),
+    image: z.string().optional(),
+    memberUsernames: z.array(z.string().min(3)).min(1)
+})
+
+export const UpdateGroupSchema = z.object({
+    name: z.string().min(3).max(50).optional(),
+    description: z.string().max(200).optional(),
+    image: z.string().optional()
+})
+
+export const AddGroupMemberSchema = z.object({
+    username: z.string().min(3)
+})
+
 
 declare global {
     namespace Express {

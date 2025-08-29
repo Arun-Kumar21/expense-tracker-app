@@ -4,12 +4,13 @@ import { acceptFriendRequest, getAllFriendRequests, getAllFriends, getFriendInfo
 
 export const friendRouter = express.Router();
 
-friendRouter.get("/", userMiddleware, getAllFriends);
-friendRouter.get("/requests", userMiddleware, getAllFriendRequests);
-friendRouter.post("/requests", userMiddleware, sendFriendRequest);
-friendRouter.delete("/requests/:requestId", userMiddleware, removeFriendRequest);
-friendRouter.put("/requests/:requestId/accept", userMiddleware, acceptFriendRequest);
-friendRouter.put("/requests/:requestId/reject", userMiddleware, rejectFriendRequest);
-friendRouter.get("/:friendId", userMiddleware, getFriendInfo);
-friendRouter.delete("/:friendId", userMiddleware, removeFriend);
+friendRouter.use(userMiddleware);
 
+friendRouter.get("/", getAllFriends);
+friendRouter.get("/requests", getAllFriendRequests);
+friendRouter.post("/requests", sendFriendRequest);
+friendRouter.delete("/requests/:requestId", removeFriendRequest);
+friendRouter.put("/requests/:requestId/accept", acceptFriendRequest);
+friendRouter.put("/requests/:requestId/reject", rejectFriendRequest);
+friendRouter.get("/:friendId", getFriendInfo);
+friendRouter.delete("/:friendId", removeFriend);
