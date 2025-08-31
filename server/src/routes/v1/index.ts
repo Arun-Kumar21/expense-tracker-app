@@ -9,12 +9,12 @@ import { groupRouter } from "./group";
 import { splitExpenseRouter } from "./splitExpense";
 import { expenseSplitRouter } from "./expenseSplit";
 import { settlementRouter } from "./settlement";
+import { userRouter } from "./user";
 
 export const router = express.Router();
 
 router.post("/signup", signup);
 router.post("/signin", signin);
-
 
 router.use("/admin", adminRouter);
 
@@ -25,4 +25,5 @@ router.use("/groups", groupRouter);
 router.use("/split-expenses", splitExpenseRouter);
 router.use("/expense-splits", expenseSplitRouter);
 router.use("/settlements", settlementRouter);
+router.use("/users", userRouter);
 router.use("/me", meRouter);

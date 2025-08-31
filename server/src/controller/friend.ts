@@ -1,14 +1,13 @@
 import { Request, Response } from "express";
 import db from "../db";
-import { AppError } from "../middleware/errorHandler";
+import { asyncHandler, AppError } from "../middleware/errorHandler";
 import { SendFriendRequestSchema } from "../types";
 
 
 // @desc    Get all friends
 // @route   GET /api/v1/friends
-
-export const getAllFriends = async (req: Request, res: Response) => {
-    if (!req.userId) { 
+export const getAllFriends = asyncHandler(async (req: Request, res: Response) => {
+    if (!req.userId) {
         throw new AppError("Unauthorized", 401);
     }
 
@@ -16,44 +15,68 @@ export const getAllFriends = async (req: Request, res: Response) => {
         where: {
             OR: [
                 { initiatorId: req.userId },
-                { receiverId: req.userId  }
+                { receiverId: req.userId }
             ]
+        },
+        include: {
+            initiator: {
+                select: {
+                    id: true,
+                    username: true,
+                    displayName: true,
+                    avatar: true
+                }
+            },
+            receiver: {
+                select: {
+                    id: true,
+                    username: true,
+                    displayName: true,
+                    avatar: true
+                }
+            }
         }
-    })
+    });
 
-    res.json({friends})
-}
+    // Map to get the friend (not self) from each friendship
+    const friendsList = friends.map(friendship => {
+        const friend = friendship.initiatorId === req.userId
+            ? friendship.receiver
+            : friendship.initiator;
+        return friend;
+    });
+
+    res.status(200).json({ friends: friendsList });
+});
 
 
 // @desc    Get friend detail with userId
 // @route   GET /api/v1/friends/:friendId
-
-export const getFriendInfo = async (req: Request, res: Response) => {
+export const getFriendInfo = asyncHandler(async (req: Request, res: Response) => {
     if (!req.userId) {
         throw new AppError("Unauthorized", 401);
     }
 
-    const friendId = req.params.friendId; 
+    const { friendId } = req.params;
 
     if (!friendId) {
-        throw new AppError("Friend id missing", 400);
+        throw new AppError("Friend ID missing", 400);
     }
 
     if (req.userId === friendId) {
         throw new AppError("Cannot get your own info as a friend", 400);
     }
 
-
     const isFriend = await db.friendship.findFirst({
         where: {
             OR: [
-                {initiatorId: req.userId, receiverId: friendId},
-                {receiverId: friendId, initiatorId: req.userId}
+                { initiatorId: req.userId, receiverId: friendId },
+                { receiverId: req.userId, initiatorId: friendId }
             ]
         }
-    })
+    });
 
-    if (isFriend) {
+    if (!isFriend) {
         throw new AppError("User is not a friend", 400);
     }
 
@@ -61,23 +84,22 @@ export const getFriendInfo = async (req: Request, res: Response) => {
         where: {
             id: friendId
         },
-        omit : {
+        omit: {
             password: true,
             role: true
         }
-    })
+    });
 
     if (!friend) {
         throw new AppError("Friend not found", 404);
     }
 
-    res.json({friend});
-}
+    res.status(200).json({ friend });
+});
 
-// @desc    Get all friends requests
+// @desc    Get all friend requests
 // @route   GET /api/v1/friends/requests
-
-export const getAllFriendRequests = async (req:Request, res: Response) => {
+export const getAllFriendRequests = asyncHandler(async (req: Request, res: Response) => {
     if (!req.userId) {
         throw new AppError("Unauthorized", 401);
     }
@@ -85,40 +107,64 @@ export const getAllFriendRequests = async (req:Request, res: Response) => {
     const receivedRequests = await db.friendRequest.findMany({
         where: {
             receiverId: req.userId,
+        },
+        include: {
+            sender: {
+                select: {
+                    id: true,
+                    username: true,
+                    displayName: true,
+                    avatar: true
+                }
+            }
+        },
+        orderBy: {
+            createdAt: 'desc'
         }
-    })
+    });
 
     const sentRequests = await db.friendRequest.findMany({
         where: {
             senderId: req.userId
+        },
+        include: {
+            receiver: {
+                select: {
+                    id: true,
+                    username: true,
+                    displayName: true,
+                    avatar: true
+                }
+            }
+        },
+        orderBy: {
+            createdAt: 'desc'
         }
-    })
+    });
 
-
-    return res.json({
+    res.status(200).json({
         sentRequests,
         receivedRequests
-    })
-};
+    });
+});
 
 // @desc    Send a friend request
 // @route   POST /api/v1/friends/requests
-
-export const sendFriendRequest = async (req: Request, res: Response) => {
+export const sendFriendRequest = asyncHandler(async (req: Request, res: Response) => {
     if (!req.userId) {
         throw new AppError("Unauthorized", 401);
     }
 
     const parsedData = SendFriendRequestSchema.safeParse(req.body);
     if (!parsedData.success) {
-        throw new AppError("Validation failed", 400); 
+        throw new AppError("Validation failed", 400);
     }
 
     const user = await db.user.findUnique({
         where: {
             username: parsedData.data.username
         }
-    })
+    });
 
     if (!user) {
         throw new AppError("User not found", 404);
@@ -128,18 +174,31 @@ export const sendFriendRequest = async (req: Request, res: Response) => {
         throw new AppError("You cannot send a friend request to yourself", 400);
     }
 
-
     const existingFriendship = await db.friendship.findFirst({
         where: {
             OR: [
-                {initiatorId: req.userId, receiverId: user.id},
-                {initiatorId: user.id, receiverId: req.userId}
+                { initiatorId: req.userId, receiverId: user.id },
+                { initiatorId: user.id, receiverId: req.userId }
             ]
         }
-    })
+    });
 
     if (existingFriendship) {
         throw new AppError("Friendship already exists", 400);
+    }
+
+    // Check for existing friend request
+    const existingRequest = await db.friendRequest.findFirst({
+        where: {
+            OR: [
+                { senderId: req.userId, receiverId: user.id },
+                { senderId: user.id, receiverId: req.userId }
+            ]
+        }
+    });
+
+    if (existingRequest) {
+        throw new AppError("Friend request already exists", 400);
     }
 
     const request = await db.friendRequest.create({
@@ -147,112 +206,121 @@ export const sendFriendRequest = async (req: Request, res: Response) => {
             senderId: req.userId,
             receiverId: user.id,
             message: parsedData.data.message
+        },
+        include: {
+            receiver: {
+                select: {
+                    id: true,
+                    username: true,
+                    displayName: true,
+                    avatar: true
+                }
+            }
         }
-    })
+    });
 
-    return res.json({request});
-}
+    res.status(201).json({ request });
+});
 
 // @desc    Remove friend request
-// @route   DELETE  /api/v1/friends/requests/:requestId
-
-export const removeFriendRequest = async (req: Request, res: Response) => {
+// @route   DELETE /api/v1/friends/requests/:requestId
+export const removeFriendRequest = asyncHandler(async (req: Request, res: Response) => {
     if (!req.userId) {
         throw new AppError("Unauthorized", 401);
     }
 
-    const requestId = req.params.requestId;
+    const { requestId } = req.params;
 
     if (!requestId) {
         throw new AppError("Missing requestId", 400);
     }
 
-    const request = await db.friendRequest.findUnique({
+    const request = await db.friendRequest.findFirst({
         where: {
             id: requestId,
             senderId: req.userId
         }
-    })
+    });
 
     if (!request) {
-        throw new AppError("No such friend request exist", 404);
-    } 
+        throw new AppError("No such friend request exists", 404);
+    }
 
     await db.friendRequest.delete({
         where: {
             id: requestId
         }
-    })
+    });
 
-    res.status(200).json({message: "Request deleted successfully"});
-}
+    res.status(200).json({ message: "Request deleted successfully" });
+});
 
 
 // @desc    Accept friend request
 // @route   PUT /api/v1/friends/requests/:requestId/accept
-
-export const acceptFriendRequest = async (req: Request, res: Response) => {
+export const acceptFriendRequest = asyncHandler(async (req: Request, res: Response) => {
     if (!req.userId) {
         throw new AppError("Unauthorized", 401);
     }
 
-    const requestId = req.params.requestId
+    const { requestId } = req.params;
 
     if (!requestId) {
         throw new AppError("RequestId missing", 400);
     }
 
-    const request = await db.friendRequest.findUnique({
+    const request = await db.friendRequest.findFirst({
         where: {
             id: requestId,
             receiverId: req.userId
         }
-    })
+    });
 
     if (!request) {
         throw new AppError("Request not found", 404);
     }
 
-    await db.friendRequest.update({
-        where: {
-            id: requestId
-        },
-        data: {
-            status: "Accepted"
-        }
-    })
+    await db.$transaction(async (tx) => {
+        await tx.friendRequest.update({
+            where: {
+                id: requestId
+            },
+            data: {
+                status: "Accepted"
+            }
+        });
 
-    await db.friendship.create({
-        data: {
-            initiatorId: request.senderId,
-            receiverId: request.receiverId
-        }
-    })
+        await tx.friendship.create({
+            data: {
+                initiatorId: request.senderId,
+                receiverId: request.receiverId
+            }
+        });
+    });
 
-    res.status(200).json({ message: "Accepted request"});
-}
+    res.status(200).json({ message: "Friend request accepted" });
+});
 
 
 // @desc    Reject friend request
 // @route   PUT /api/v1/friends/requests/:requestId/reject
-
-export const rejectFriendRequest = async (req: Request, res: Response) => {
+export const rejectFriendRequest = asyncHandler(async (req: Request, res: Response) => {
     if (!req.userId) {
         throw new AppError("Unauthorized", 401);
     }
 
-    const requestId = req.params.requestId
+    const { requestId } = req.params;
 
     if (!requestId) {
         throw new AppError("RequestId missing", 400);
     }
 
-    const request = await db.friendRequest.findUnique({
+    const request = await db.friendRequest.findFirst({
         where: {
             id: requestId,
             receiverId: req.userId
         }
-    })
+    });
 
     if (!request) {
         throw new AppError("Request not found", 404);
@@ -265,20 +333,19 @@ export const rejectFriendRequest = async (req: Request, res: Response) => {
         data: {
             status: "Rejected"
         }
-    })
+    });
 
-    res.status(200).json({ message: "Rejected request"});
-}
+    res.status(200).json({ message: "Friend request rejected" });
+});
 
 // @desc    Remove friend
 // @route   DELETE /api/v1/friends/:friendId
-
-export const removeFriend = async (req: Request, res: Response) => {
+export const removeFriend = asyncHandler(async (req: Request, res: Response) => {
     if (!req.userId) {
         throw new AppError("Unauthorized", 401);
     }
 
-    const friendId = req.params.friendId;
+    const { friendId } = req.params;
 
     if (!friendId) {
         throw new AppError("FriendId missing", 400);
@@ -287,37 +354,23 @@ export const removeFriend = async (req: Request, res: Response) => {
     const friendship = await db.friendship.findFirst({
         where: {
             OR: [
-                {initiatorId: req.userId, receiverId: friendId},
-                {initiatorId: friendId, receiverId: req.userId},
+                { initiatorId: req.userId, receiverId: friendId },
+                { initiatorId: friendId, receiverId: req.userId },
             ]
         }
-    })
+    });
 
     if (!friendship) {
-        throw new AppError("Friendship didn't exist", 404);
+        throw new AppError("Friendship doesn't exist", 404);
     }
 
-    // Remove friendship using compound unique key
-    if (friendship.initiatorId === req.userId && friendship.receiverId === friendId) {
-        await db.friendship.delete({
-            where: {
-                initiatorId_receiverId: {
-                    initiatorId: req.userId,
-                    receiverId: friendId
-                }
-            }
-        });
-    } else if (friendship.initiatorId === friendId && friendship.receiverId === req.userId) {
-        await db.friendship.delete({
-            where: {
-                initiatorId_receiverId: {
-                    initiatorId: friendId,
-                    receiverId: req.userId
-                }
-            }
-        });
-    }
+    // Remove friendship using the found friendship ID
+    await db.friendship.delete({
+        where: {
+            id: friendship.id
+        }
+    });
 
-    res.json({ message: "Successfully remove friendship" });
-}
+    res.status(200).json({ message: "Successfully removed friendship" });
+});
 

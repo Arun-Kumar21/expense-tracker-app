@@ -1,13 +1,11 @@
 import { Request, Response } from "express";
-
 import { AddCategorySchema, UpdateCategorySchema } from "../types";
-import { AppError } from "../middleware/errorHandler";
+import { asyncHandler, AppError } from "../middleware/errorHandler";
 import db from "../db";
 
-// @desc    Get all categories (user)
-// @route   GET    /api/v1/categories
-
-export const getAllCategories = async (req: Request, res: Response) => {
+// @desc    Get all categories for user
+// @route   GET /api/v1/categories
+export const getAllCategories = asyncHandler(async (req: Request, res: Response) => {
     if (!req.userId) {
         throw new AppError("Unauthorized", 401);
     }
@@ -15,29 +13,34 @@ export const getAllCategories = async (req: Request, res: Response) => {
     const userCategories = await db.category.findMany({
         where: {
             userId: req.userId
+        },
+        orderBy: {
+            name: 'asc'
         }
-    })
+    });
 
     const globalCategories = await db.category.findMany({
         where: {
             userId: null
+        },
+        orderBy: {
+            name: 'asc'
         }
     });
 
     res.status(200).json({ categories: [...userCategories, ...globalCategories] });
-}
+});
 
-// @desc    Add category  (user)
-// @route   POST    /api/v1/categories
+// @desc    Add category
+// @route   POST /api/v1/categories
+export const addCategory = asyncHandler(async (req: Request, res: Response) => {
+    if (!req.userId) {
+        throw new AppError("Unauthorized", 401);
+    }
 
-export const addCategory = async (req: Request, res: Response) => {
     const parsedData = AddCategorySchema.safeParse(req.body);
     if (!parsedData.success) {
         throw new AppError("Validation failed", 400);
-    }
-
-    if (!req.userId) {
-        throw new AppError("Unauthorized", 401)
     }
 
     const category = await db.category.create({
@@ -47,31 +50,30 @@ export const addCategory = async (req: Request, res: Response) => {
             icon: parsedData.data.icon,
             color: parsedData.data.color
         }
-    })
+    });
 
-    res.status(201).json({category})
-}
+    res.status(201).json({ category });
+});
 
-// @desc    Update category (user) 
-// @route   UPDATE  /api/v1/categories/:categoryId
-
-export const updateCategory = async (req: Request, res: Response) => {
-    const parsedData = UpdateCategorySchema.safeParse(req.body);
-    if (!parsedData.success) {
-        throw new AppError("Validaton failed", 400);
-    }
-
-    const categoryId = req.params.categoryId;
-
+// @desc    Update category
+// @route   PUT /api/v1/categories/:categoryId
+export const updateCategory = asyncHandler(async (req: Request, res: Response) => {
     if (!req.userId) {
         throw new AppError("Unauthorized", 401);
     }
+
+    const parsedData = UpdateCategorySchema.safeParse(req.body);
+    if (!parsedData.success) {
+        throw new AppError("Validation failed", 400);
+    }
+
+    const { categoryId } = req.params;
 
     const category = await db.category.findUnique({
         where: {
             id: categoryId,
         }
-    })
+    });
 
     if (!category) {
         throw new AppError("Category not found", 404);
@@ -93,24 +95,23 @@ export const updateCategory = async (req: Request, res: Response) => {
         data: updateData,
     });
 
-    res.status(200).json({ updatedCategory });
-}
+    res.status(200).json({ category: updatedCategory });
+});
 
-// @desc    Delete category (user)
+// @desc    Delete category
 // @route   DELETE /api/v1/categories/:categoryId
-
-export const deleteCategory = async (req: Request, res: Response) => {
-    const categoryId = req.params.categoryId;
-
+export const deleteCategory = asyncHandler(async (req: Request, res: Response) => {
     if (!req.userId) {
         throw new AppError("Unauthorized", 401);
     }
+
+    const { categoryId } = req.params;
 
     const category = await db.category.findUnique({
         where: {
             id: categoryId,
         }
-    })
+    });
 
     if (!category) {
         throw new AppError("Category not found", 404);
@@ -124,7 +125,7 @@ export const deleteCategory = async (req: Request, res: Response) => {
         where: {
             id: categoryId,
         }
-    })
+    });
 
-    res.status(204).send();
-}
+    res.status(200).json({ message: "Category deleted successfully" });
+});

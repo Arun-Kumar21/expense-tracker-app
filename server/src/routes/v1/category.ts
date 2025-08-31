@@ -8,5 +8,5 @@ categoryRouter.use(userMiddleware);
 
 categoryRouter.get("/", getAllCategories);
 categoryRouter.post("/", addCategory);
-categoryRouter.patch("/:categoryId", updateCategory);
+categoryRouter.put("/:categoryId", updateCategory);
 categoryRouter.delete("/:categoryId", deleteCategory);

@@ -1,13 +1,12 @@
-import express, { Request, Response } from 'express';
-import { AppError } from '../middleware/errorHandler';
+import { Request, Response } from 'express';
+import { asyncHandler, AppError } from '../middleware/errorHandler';
 import db from '../db';
 import { UpdateProfileSchema } from '../types';
 
 
 // @desc    Get current user profile
 // @route   GET /api/v1/me
-
-export const getCurrentUserProfile = async (req: Request, res: Response) => {
+export const getCurrentUserProfile = asyncHandler(async (req: Request, res: Response) => {
     if (!req.userId) {
         throw new AppError("Unauthorized", 401);
     }
@@ -19,19 +18,18 @@ export const getCurrentUserProfile = async (req: Request, res: Response) => {
         omit: {
             password: true,
         }
-    })
+    });
 
     if (!userProfile) {
         throw new AppError("User not found", 404);
     }
 
-    res.json({ userProfile });
-}
+    res.status(200).json({ user: userProfile });
+});
 
 // @desc    Update current user profile
 // @route   PUT /api/v1/me
-
-export const updateCurrentUserProfile = async (req: Request, res: Response) => {
+export const updateCurrentUserProfile = asyncHandler(async (req: Request, res: Response) => {
     if (!req.userId) {
         throw new AppError("Unauthorized", 401);
     }
@@ -40,7 +38,7 @@ export const updateCurrentUserProfile = async (req: Request, res: Response) => {
     if (!parsedData.success) {
         throw new AppError("Validation failed", 400);
     }
-    
+
     const updatedProfile = await db.user.update({
         where: {
             id: req.userId
@@ -52,10 +50,10 @@ export const updateCurrentUserProfile = async (req: Request, res: Response) => {
         omit: {
             password: true
         }
-    })
+    });
 
-    res.json({ updatedProfile })
-}
+    res.status(200).json({ user: updatedProfile });
+});
 
 
 //TODO: Add account deletion functionality after a time period.
