@@ -43,10 +43,10 @@ export default function TabNavigator() {
 
           return <Ionicons name={iconName} size={size} color={color} />;
         },
-        tabBarActiveTintColor: "#007AFF",
+        tabBarActiveTintColor: "#007A",
         tabBarInactiveTintColor: "gray",
         headerStyle: {
-          backgroundColor: "#007AFF",
+          backgroundColor: "#fff",
         },
         headerTintColor: "#fff",
         headerTitleStyle: {

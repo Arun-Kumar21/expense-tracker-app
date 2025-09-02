@@ -9,6 +9,9 @@ export default function DashboardScreen() {
       <Text style={styles.description}>
         Track your expenses, manage groups, and split bills with friends
       </Text>
+      <Text className="text-3xl bg-red-500">
+        This is a big text
+      </Text>
     </View>
   );
 }
